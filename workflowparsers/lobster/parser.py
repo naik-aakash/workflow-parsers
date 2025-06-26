@@ -786,7 +786,7 @@ mainfile_parser = TextParser(
 
 class LobsterParser:
     def __init__(self):
-        pass
+        self._child_archives = {}
 
     @staticmethod
     def capitalize_positions(string, positions):
@@ -810,6 +810,14 @@ class LobsterParser:
 
         # Join the list back into a string
         return ''.join(char_list)
+
+    def get_mainfile_keys(self, **kwargs):
+        filepath = kwargs.get('filename')
+        mainfile_path = os.path.dirname(filepath)
+        dft_entry_point = get_lobster_file(os.path.join(mainfile_path, 'vasprun.xml'))
+        if os.path.exists(dft_entry_point):
+            return ['vasprun.xml']
+        return []
 
     def parse(self, mainfile: str, archive: EntryArchive, logger=None):
         mainfile_parser.mainfile = mainfile
@@ -947,3 +955,43 @@ class LobsterParser:
 
         if run.system:
             scc.system_ref = run.system[0]
+
+        dft_entry_point = get_lobster_file(os.path.join(mainfile_path, 'vasprun.xml'))
+        if os.path.exists(dft_entry_point):
+
+            try:
+                # For automatic workflows
+                from nomad.search import search
+                from nomad.app.v1.models import MetadataRequired
+
+                upload_id = self.archive.metadata.upload_id
+                search_ids = search(
+                    owner='visible',
+                    user_id=self.archive.metadata.main_author.user_id,
+                    query={'upload_id': upload_id},
+                    required=MetadataRequired(include=['entry_id', 'mainfile']),
+                ).data
+                metadata = [[sid['entry_id'], sid['mainfile']] for sid in search_ids]
+                print(metadata)
+                if metadata:
+                    for entry_id, s_mainfile in metadata:
+                        if (
+                            s_mainfile == mainfile
+                        ):  # we skipped the current parsed mainfile
+                            continue
+                        entry_archive = archive.m_context.load_archive(
+                            entry_id, upload_id, None
+                        )
+                        if (
+                            "vasprun.xml" == mainfile
+                        ):  # TODO add condition on system section or is this enough? System is resolved anyways from wannier90_path
+                            vasp_archive = entry_archive
+                            dft_archive = self._child_archives.get(
+                                'vasprun.xml'
+                            )
+                            print(dft_archive)
+                            break
+            except Exception:
+                logger.warning(
+                    "Skip"
+                )
