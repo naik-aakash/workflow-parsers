@@ -961,8 +961,8 @@ class LobsterParser:
 
             try:
                 # For automatic workflows
-                from nomad.search import search
-                from nomad.app.v1.models import MetadataRequired
+                from nomad.search import search # noqa: PLC0415
+                from nomad.app.v1.models import MetadataRequired # noqa: PLC0415
 
                 upload_id = self.archive.metadata.upload_id
                 search_ids = search(
