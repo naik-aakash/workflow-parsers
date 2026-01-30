@@ -159,7 +159,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
                             Quantity(
                                 'line',
                                 # LOBSTER version 3 and above
-                                r'( *\d+ +\w+ +\w+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ *)',
+                                r'( *\d+ +[^ ]+ +[^ ]+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ *)',
                                 repeats=True,
                                 str_operation=icoxp_line_split,
                             )
@@ -196,7 +196,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
                             Quantity(
                                 'line',
                                 # LOBSTER version 5.1 and above
-                                r'( *\d+ +\w+ +\w+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ *)',
+                                r'( *\d+ +[^ ]+ +[^ ]+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ *)',
                                 repeats=True,
                                 str_operation=icoxp_line_split,
                             )
