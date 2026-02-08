@@ -483,7 +483,9 @@ def test_HfV(parser):
     )
 
 
-@pytest.mark.skipif(Version(ase.__version__) > Version('3.22') ,reason='Incompatible with ase v26')
+@pytest.mark.skipif(
+    Version(ase.__version__) > Version('3.22'), reason='Incompatible with ase v26'
+)
 def test_QE_Ni(parser):
     """
     Check that basic info is parsed properly when LOBSTER is run on top
@@ -508,18 +510,18 @@ def test_QE_Ni(parser):
     assert method[0].x_lobster_code == 'Quantum Espresso'
     assert method[0].electrons_representation[0].basis_set[0].type == 'Bunge'
     assert method[0].x_lobster_basis_functions == {
-            "Ni": [
-              "4s",
-              "3p_y",
-              "3p_z",
-              "3p_x",
-              "3d_xy",
-              "3d_yz",
-              "3d_z^2",
-              "3d_xz",
-              "3d_x^2-y^2"
-            ]
-          }
+        'Ni': [
+            '4s',
+            '3p_y',
+            '3p_z',
+            '3p_x',
+            '3d_xy',
+            '3d_yz',
+            '3d_z^2',
+            '3d_xz',
+            '3d_x^2-y^2',
+        ]
+    }
 
     assert len(run.calculation) == 1
     scc = run.calculation[0]
@@ -530,18 +532,18 @@ def test_QE_Ni(parser):
     assert scc.x_lobster_abs_charge_spilling[0] == approx(4.02)
     assert scc.x_lobster_abs_charge_spilling[1] == approx(3.37)
     assert method[0].x_lobster_basis_functions == {
-            "Ni": [
-              "4s",
-              "3p_y",
-              "3p_z",
-              "3p_x",
-              "3d_xy",
-              "3d_yz",
-              "3d_z^2",
-              "3d_xz",
-              "3d_x^2-y^2"
-            ]
-          }
+        'Ni': [
+            '4s',
+            '3p_y',
+            '3p_z',
+            '3p_x',
+            '3d_xy',
+            '3d_yz',
+            '3d_z^2',
+            '3d_xz',
+            '3d_x^2-y^2',
+        ]
+    }
 
     assert run.clean_end is True
 
@@ -578,13 +580,13 @@ def test_Si(parser):
     method = run.method
     assert method[0].electrons_representation[0].basis_set[0].type == 'pbeVaspFit2015'
     assert method[0].x_lobster_basis_functions == {
-            "Si": [
-              "3s",
-              "3p_y",
-              "3p_z",
-              "3p_x",
-            ]
-          }
+        'Si': [
+            '3s',
+            '3p_y',
+            '3p_z',
+            '3p_x',
+        ]
+    }
 
     # ICOHPLIST.lobster
     cohp = scc.x_lobster_section_cohp
@@ -675,32 +677,21 @@ def test_BaTiO3(parser):
     method = run.method
     assert method[0].electrons_representation[0].basis_set[0].type == 'pbeVaspFit2015'
     assert method[0].x_lobster_basis_functions == {
-            "O": [
-              "2s",
-              "2p_y",
-              "2p_z",
-              "2p_x"
-            ],
-            "Ba": [
-              "5s",
-              "6s",
-              "5p_y",
-              "5p_z",
-              "5p_x"
-            ],
-            "Ti": [
-              "3s",
-              "4s",
-              "3p_y",
-              "3p_z",
-              "3p_x",
-              "3d_xy",
-              "3d_yz",
-              "3d_z^2",
-              "3d_xz",
-              "3d_x^2-y^2"
-            ]
-          }
+        'O': ['2s', '2p_y', '2p_z', '2p_x'],
+        'Ba': ['5s', '6s', '5p_y', '5p_z', '5p_x'],
+        'Ti': [
+            '3s',
+            '4s',
+            '3p_y',
+            '3p_z',
+            '3p_x',
+            '3d_xy',
+            '3d_yz',
+            '3d_z^2',
+            '3d_xz',
+            '3d_x^2-y^2',
+        ],
+    }
 
     # ICOHPLIST.lobster
     cohp = scc.x_lobster_section_cohp
@@ -771,19 +762,9 @@ def test_AlN_v51(parser):
     # Method basis functions
     method = run.method
     assert method[0].x_lobster_basis_functions == {
-            "N": [
-              "2s",
-              "2p_y",
-              "2p_z",
-              "2p_x"
-            ],
-            "Al": [
-              "3s",
-              "3p_y",
-              "3p_z",
-              "3p_x"
-            ]
-          }
+        'N': ['2s', '2p_y', '2p_z', '2p_x'],
+        'Al': ['3s', '3p_y', '3p_z', '3p_x'],
+    }
 
 
 def test_BaTiO3_v5(parser):
@@ -851,6 +832,100 @@ def test_failed_case(parser):
     run = archive.run[0]
     assert run.clean_end is False
 
+
+def test_orbitalwise_UO3(parser):
+    """
+    Test that orbital-wise data is correctly parsed for a calculation with LOBSTER 4.1.0.
+    """
+
+    archive = EntryArchive()
+    parser.parse('tests/data/lobster/UO3/lobsterout.gz', archive, logging)
+
+    run = archive.run[0]
+    scc = run.calculation[0]
+
+    # check total number of interactions
+    assert scc.x_lobster_section_cohp.x_lobster_number_of_cohp_pairs == len(
+        scc.x_lobster_section_cohp.x_lobster_cohp_orbital_pairs
+    )
+    assert len(scc.x_lobster_section_cohp.x_lobster_cohp_orbital_pairs[0]) == 289
+
+    assert scc.x_lobster_section_cohp.x_lobster_cohp_orbital_pairs[25] == [
+        ['O2_2s', 'U1_6s'],
+        ['O2_2p_y', 'U1_6s'],
+        ['O2_2p_z', 'U1_6s'],
+        ['O2_2p_x', 'U1_6s'],
+        ['O2_2s', 'U1_7s'],
+        ['O2_2p_y', 'U1_7s'],
+        ['O2_2p_z', 'U1_7s'],
+        ['O2_2p_x', 'U1_7s'],
+        ['O2_2s', 'U1_6p_y'],
+        ['O2_2p_y', 'U1_6p_y'],
+        ['O2_2p_z', 'U1_6p_y'],
+        ['O2_2p_x', 'U1_6p_y'],
+        ['O2_2s', 'U1_6p_z'],
+        ['O2_2p_y', 'U1_6p_z'],
+        ['O2_2p_z', 'U1_6p_z'],
+        ['O2_2p_x', 'U1_6p_z'],
+        ['O2_2s', 'U1_6p_x'],
+        ['O2_2p_y', 'U1_6p_x'],
+        ['O2_2p_z', 'U1_6p_x'],
+        ['O2_2p_x', 'U1_6p_x'],
+        ['O2_2s', 'U1_6d_xy'],
+        ['O2_2p_y', 'U1_6d_xy'],
+        ['O2_2p_z', 'U1_6d_xy'],
+        ['O2_2p_x', 'U1_6d_xy'],
+        ['O2_2s', 'U1_6d_yz'],
+        ['O2_2p_y', 'U1_6d_yz'],
+        ['O2_2p_z', 'U1_6d_yz'],
+        ['O2_2p_x', 'U1_6d_yz'],
+        ['O2_2s', 'U1_6d_z^2'],
+        ['O2_2p_y', 'U1_6d_z^2'],
+        ['O2_2p_z', 'U1_6d_z^2'],
+        ['O2_2p_x', 'U1_6d_z^2'],
+        ['O2_2s', 'U1_6d_xz'],
+        ['O2_2p_y', 'U1_6d_xz'],
+        ['O2_2p_z', 'U1_6d_xz'],
+        ['O2_2p_x', 'U1_6d_xz'],
+        ['O2_2s', 'U1_6d_x^2-y^2'],
+        ['O2_2p_y', 'U1_6d_x^2-y^2'],
+        ['O2_2p_z', 'U1_6d_x^2-y^2'],
+        ['O2_2p_x', 'U1_6d_x^2-y^2'],
+        ['O2_2s', 'U1_5f_y(3x^2-y^2)'],
+        ['O2_2p_y', 'U1_5f_y(3x^2-y^2)'],
+        ['O2_2p_z', 'U1_5f_y(3x^2-y^2)'],
+        ['O2_2p_x', 'U1_5f_y(3x^2-y^2)'],
+        ['O2_2s', 'U1_5f_xyz'],
+        ['O2_2p_y', 'U1_5f_xyz'],
+        ['O2_2p_z', 'U1_5f_xyz'],
+        ['O2_2p_x', 'U1_5f_xyz'],
+        ['O2_2s', 'U1_5f_yz^2'],
+        ['O2_2p_y', 'U1_5f_yz^2'],
+        ['O2_2p_z', 'U1_5f_yz^2'],
+        ['O2_2p_x', 'U1_5f_yz^2'],
+        ['O2_2s', 'U1_5f_z^3'],
+        ['O2_2p_y', 'U1_5f_z^3'],
+        ['O2_2p_z', 'U1_5f_z^3'],
+        ['O2_2p_x', 'U1_5f_z^3'],
+        ['O2_2s', 'U1_5f_xz^2'],
+        ['O2_2p_y', 'U1_5f_xz^2'],
+        ['O2_2p_z', 'U1_5f_xz^2'],
+        ['O2_2p_x', 'U1_5f_xz^2'],
+        ['O2_2s', 'U1_5f_z(x^2-y^2)'],
+        ['O2_2p_y', 'U1_5f_z(x^2-y^2)'],
+        ['O2_2p_z', 'U1_5f_z(x^2-y^2)'],
+        ['O2_2p_x', 'U1_5f_z(x^2-y^2)'],
+        ['O2_2s', 'U1_5f_x(x^2-3y^2)'],
+        ['O2_2p_y', 'U1_5f_x(x^2-3y^2)'],
+        ['O2_2p_z', 'U1_5f_x(x^2-3y^2)'],
+        ['O2_2p_x', 'U1_5f_x(x^2-3y^2)'],
+    ]
+
+    assert scc.x_lobster_section_cohp.x_lobster_integrated_orbital_cohp_at_fermi_level[
+        0
+    ][37][0][0] == approx(eV_to_J(-0.00001))
+
+
 # TODO enable once tests with infra is permitted
 def _test_workflow(parser, upload_data, upload_id, context, main_author):
     archive = EntryArchive(
@@ -879,8 +954,16 @@ def _test_workflow(parser, upload_data, upload_id, context, main_author):
     assert len(workflow_archive.workflow2.tasks) == 2
     assert workflow_archive.workflow2.tasks[0].name == 'DFT run'
     assert workflow_archive.workflow2.tasks[0].inputs[0].name == 'Input Structure'
-    assert workflow_archive.workflow2.tasks[0].outputs[0].name == 'Output DFT calculation'
+    assert (
+        workflow_archive.workflow2.tasks[0].outputs[0].name == 'Output DFT calculation'
+    )
 
     assert workflow_archive.workflow2.tasks[1].name == 'LOBSTER run'
-    assert workflow_archive.workflow2.tasks[1].inputs[0].name == 'Structure and PlaneWavefunctions'
-    assert workflow_archive.workflow2.tasks[1].outputs[0].name == 'Output LOBSTER calculation'
+    assert (
+        workflow_archive.workflow2.tasks[1].inputs[0].name
+        == 'Structure and PlaneWavefunctions'
+    )
+    assert (
+        workflow_archive.workflow2.tasks[1].outputs[0].name
+        == 'Output LOBSTER calculation'
+    )
