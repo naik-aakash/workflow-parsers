@@ -1210,7 +1210,7 @@ class LobsterParser:
                 from nomad.search import search  # noqa
                 from nomad.app.v1.models import MetadataRequired  # noqa
 
-                parent_file = parent_file.rsplit('/', maxsplit=1)[0]
+                parent_file = mainfile.rsplit('/', maxsplit=1)[0]
                 parent_dir = os.path.dirname(parent_file)
 
                 upload_id = archive.metadata.upload_id
