@@ -621,16 +621,23 @@ def test_Si(parser):
     assert len(cobi.x_lobster_cobi_distances) == 64
 
     # check if orbital-wise data is correctly read
-    assert len(coop.x_lobster_coop_orbital_pairs) == 64
-    assert len(cohp.x_lobster_cohp_orbital_pairs) == 64
-    assert len(cobi.x_lobster_cobi_orbital_pairs) == 64
-    assert coop.x_lobster_coop_orbital_pairs[-1][0] == ['Si2_3s', 'Si2_3s']
-    assert coop.x_lobster_coop_orbital_pairs[10][1] == ['Si1_3p_y', 'Si1_3s']
-    assert len(cohp.x_lobster_integrated_cohp_orbital_values) == 64
-    assert cohp.x_lobster_integrated_cohp_orbital_values[24][1][0][5] == approx(
-        eV_to_J(-0.2004)
-    )
-    assert cobi.x_lobster_integrated_cobi_orbital_values[20][1][0][5] == approx(0.00052)
+    assert len(coop.x_lobster_coop_per_label) == 64
+    assert len(cohp.x_lobster_cohp_per_label) == 64
+    assert len(cobi.x_lobster_cobi_per_label) == 64
+    assert coop.x_lobster_coop_per_label[-1].x_lobster_coop_orbital_pairs[0] == [
+        'Si2_3s',
+        'Si2_3s',
+    ]
+    assert coop.x_lobster_coop_per_label[10].x_lobster_coop_orbital_pairs[1] == [
+        'Si1_3p_y',
+        'Si1_3s',
+    ]
+    assert cohp.x_lobster_cohp_per_label[24].x_lobster_integrated_cohp_orbital_values[
+        1
+    ][0][5] == approx(eV_to_J(-0.2004))
+    assert cobi.x_lobster_cobi_per_label[20].x_lobster_integrated_cobi_orbital_values[
+        1
+    ][0][5] == approx(0.00052)
     assert (
         coop.x_lobster_integrated_coop_values[24, 1, 5].magnitude
         == coop.x_lobster_integrated_coop_at_fermi_level[0][24].magnitude
@@ -703,11 +710,19 @@ def test_BaTiO3(parser):
     assert cohp.x_lobster_cohp_distances[99].magnitude == approx(A_to_m(3.297793))
 
     # test for orbital wise data shape
-    assert len(cohp.x_lobster_cohp_orbital_pairs) == 176
-    assert len(cohp.x_lobster_cohp_orbital_pairs[0]) == 25
-    assert len(cohp.x_lobster_integrated_cohp_orbital_values) == 176
-    assert len(cohp.x_lobster_integrated_cohp_orbital_values[30]) == 20
-    assert len(cohp.x_lobster_integrated_cohp_orbital_values[30][0]) == 11
+    assert len(cohp.x_lobster_cohp_per_label) == 176
+    assert len(cohp.x_lobster_cohp_per_label[0].x_lobster_cohp_orbital_pairs) == 25
+    assert len(
+        cohp.x_lobster_cohp_per_label[30].x_lobster_integrated_cohp_orbital_values
+    ) == 20
+    assert (
+        len(
+            cohp.x_lobster_cohp_per_label[30].x_lobster_integrated_cohp_orbital_values[
+                0
+            ]
+        )
+        == 11
+    )
 
     # test if data is parsed correctly by matching data from icoxplist with coxpcar
     for ix, icohp in enumerate(cohp.x_lobster_integrated_cohp_at_fermi_level[0]):
@@ -807,11 +822,19 @@ def test_BaTiO3_v5(parser):
     assert cohp.x_lobster_cohp_distances[44].magnitude == approx(A_to_m(2.977976))
 
     # test for orbital wise data shape
-    assert len(cohp.x_lobster_cohp_orbital_pairs) == 58
-    assert len(cohp.x_lobster_cohp_orbital_pairs[0]) == 25
-    assert len(cohp.x_lobster_integrated_cohp_orbital_values) == 58
-    assert len(cohp.x_lobster_integrated_cohp_orbital_values[30]) == 40
-    assert len(cohp.x_lobster_integrated_cohp_orbital_values[30][0]) == 6
+    assert len(cohp.x_lobster_cohp_per_label) == 58
+    assert len(cohp.x_lobster_cohp_per_label[0].x_lobster_cohp_orbital_pairs) == 25
+    assert len(
+        cohp.x_lobster_cohp_per_label[30].x_lobster_integrated_cohp_orbital_values
+    ) == 40
+    assert (
+        len(
+            cohp.x_lobster_cohp_per_label[30].x_lobster_integrated_cohp_orbital_values[
+                0
+            ]
+        )
+        == 6
+    )
 
     # test if data is parsed correctly by matching data from icoxplist with coxpcar
     for ix, icohp in enumerate(cohp.x_lobster_integrated_cohp_at_fermi_level[0]):
@@ -846,11 +869,16 @@ def test_orbitalwise_UO3(parser):
 
     # check total number of interactions
     assert scc.x_lobster_section_cohp.x_lobster_number_of_cohp_pairs == len(
-        scc.x_lobster_section_cohp.x_lobster_cohp_orbital_pairs
+        scc.x_lobster_section_cohp.x_lobster_cohp_per_label
     )
-    assert len(scc.x_lobster_section_cohp.x_lobster_cohp_orbital_pairs[0]) == 289
+    assert (
+        len(
+            scc.x_lobster_section_cohp.x_lobster_cohp_per_label[0].x_lobster_cohp_orbital_pairs
+        )
+        == 289
+    )
 
-    assert scc.x_lobster_section_cohp.x_lobster_cohp_orbital_pairs[25] == [
+    assert scc.x_lobster_section_cohp.x_lobster_cohp_per_label[25].x_lobster_cohp_orbital_pairs == [
         ['O2_2s', 'U1_6s'],
         ['O2_2p_y', 'U1_6s'],
         ['O2_2p_z', 'U1_6s'],
@@ -921,9 +949,11 @@ def test_orbitalwise_UO3(parser):
         ['O2_2p_x', 'U1_5f_x(x^2-3y^2)'],
     ]
 
-    assert scc.x_lobster_section_cohp.x_lobster_integrated_orbital_cohp_at_fermi_level[
-        0
-    ][37][0][0] == approx(eV_to_J(-0.00001))
+    assert (
+        scc.x_lobster_section_cohp.x_lobster_cohp_per_label[0]
+        .x_lobster_integrated_orbital_cohp_at_fermi_level[0][37]
+        == approx(eV_to_J(-0.00001))
+    )
 
 
 # TODO enable once tests with infra is permitted
