@@ -205,47 +205,58 @@ class x_lobster_section_cobi(MSection):
         Calculated iCOBI values averaged over all pairs.
         """,
     )
-    x_lobster_integrated_orbital_cobi_at_fermi_level = Quantity(
-        type=typing.Any,
-        unit='dimensionless',
-        shape=["*"],
-        description="""
-                Calculated orbital iCOBI values integrated up to the Fermi level.
-                """,
+    x_lobster_cobi_per_label = SubSection(
+        sub_section=SectionProxy('x_lobster_section_cobi_orbital_label'), repeats=True
     )
+
+
+class x_lobster_section_cobi_orbital_label(MSection):
+    """
+    Orbital-resolved COBI/iCOBI grouped per bond label.
+    """
+
+    m_def = Section(validate=False)
+
+    x_lobster_pair_label = Quantity(
+        type=str,
+        description="""
+        Bond label as printed in COBICAR.
+        """,
+    )
+
     x_lobster_cobi_orbital_pairs = Quantity(
         type=typing.Any,
-        description="""
-            List of atom orbital pairs grouped for each bonds for which are the COBIs and iCOBIs calculated.
-            """,
         shape=["*"],
+        description="""
+        List of atom orbital pairs for this bond label.
+        """,
     )
+
     x_lobster_cobi_orbital_values = Quantity(
         type=typing.Any,
         unit='dimensionless',
-        shape=[
-            'x_lobster_number_of_cobi_pairs',
-            '*',
-            'number_of_spin_channels',
-            'x_lobster_number_of_cobi_values'
-        ],
+        shape=["*"],
         description="""
-            Calculated COBI values for the orbitals.
-            """,
+        Calculated COBI values for the orbital pairs.
+        """,
     )
 
     x_lobster_integrated_cobi_orbital_values = Quantity(
         type=typing.Any,
         unit='dimensionless',
-        shape=[
-            'x_lobster_number_of_cobi_pairs',
-            '*',
-            'number_of_spin_channels',
-            'x_lobster_number_of_cobi_values'
-        ],
+        shape=["*"],
         description="""
-            Calculated iCOBI values for the orbitals.
-            """,
+        Calculated iCOBI values for the orbital pairs.
+        """,
+    )
+
+    x_lobster_integrated_orbital_cobi_at_fermi_level = Quantity(
+        type=typing.Any,
+        unit='dimensionless',
+        shape=["*"],
+        description="""
+        Calculated orbital iCOBI values integrated up to the Fermi level.
+        """,
     )
 
 
@@ -380,46 +391,57 @@ class x_lobster_section_cohp(MSection):
         in the COPHCAR in the new format.
         """,
     )
-    x_lobster_integrated_orbital_cohp_at_fermi_level = Quantity(
-        type=typing.Any,
-        unit='joule',
-        shape=["*"],
-        description="""
-                Calculated orbital iCOHP values integrated up to the Fermi level.
-                """,
+    x_lobster_cohp_per_label = SubSection(
+        sub_section=SectionProxy('x_lobster_section_cohp_orbital_label'), repeats=True
     )
+
+
+class x_lobster_section_cohp_orbital_label(MSection):
+    """
+    Orbital-resolved COHP/iCOHP grouped per bond label.
+    """
+
+    m_def = Section(validate=False)
+
+    x_lobster_pair_label = Quantity(
+        type=str,
+        description="""
+        Bond label as printed in COHPCAR.
+        """,
+    )
+
     x_lobster_cohp_orbital_pairs = Quantity(
         type=typing.Any,
-        description="""
-            List of atom orbital pairs grouped for each bonds for which are the COHPs and iCOHPs calculated.
-            """,
         shape=["*"],
+        description="""
+        List of atom orbital pairs for this bond label.
+        """,
     )
+
     x_lobster_cohp_orbital_values = Quantity(
         type=typing.Any,
-        shape=[
-            'x_lobster_number_of_cohp_pairs',
-            '*',
-            'number_of_spin_channels',
-            'x_lobster_number_of_cohp_values'
-        ],
+        shape=["*"],
         description="""
-            Calculated COHP values for the orbitals.
-            """,
+        Calculated COHP values for the orbital pairs.
+        """,
     )
 
     x_lobster_integrated_cohp_orbital_values = Quantity(
         type=typing.Any,
         unit='joule',
-        shape=[
-            'x_lobster_number_of_cohp_pairs',
-            '*',
-            'number_of_spin_channels',
-            'x_lobster_number_of_cohp_values'
-        ],
+        shape=["*"],
         description="""
-            Calculated iCOHP values for the orbitals.
-            """,
+        Calculated iCOHP values for the orbital pairs.
+        """,
+    )
+
+    x_lobster_integrated_orbital_cohp_at_fermi_level = Quantity(
+        type=typing.Any,
+        unit='joule',
+        shape=["*"],
+        description="""
+        Calculated orbital iCOHP values integrated up to the Fermi level.
+        """,
     )
 
 
@@ -553,46 +575,58 @@ class x_lobster_section_coop(MSection):
         in the COOPCAR in the new format.
         """,
     )
+    x_lobster_coop_per_label = SubSection(
+        sub_section=SectionProxy('x_lobster_section_coop_orbital_label'), repeats=True
+    )
+
+
+class x_lobster_section_coop_orbital_label(MSection):
+    """
+    Orbital-resolved COOP/iCOOP grouped per bond label.
+    """
+
+    m_def = Section(validate=False)
+
+    x_lobster_pair_label = Quantity(
+        type=str,
+        description="""
+        Bond label as printed in COOPCAR.
+        """,
+    )
+
+    x_lobster_coop_orbital_pairs = Quantity(
+        type=typing.Any,
+        shape=["*"],
+        description="""
+        List of atom orbital pairs for this bond label.
+        """,
+    )
+
+    x_lobster_coop_orbital_values = Quantity(
+        type=typing.Any,
+        unit='dimensionless',
+        shape=["*"],
+        description="""
+        Calculated COOP values for the orbital pairs.
+        """,
+    )
+
+    x_lobster_integrated_coop_orbital_values = Quantity(
+        type=typing.Any,
+        unit='dimensionless',
+        shape=["*"],
+        description="""
+        Calculated iCOOP values for the orbital pairs.
+        """,
+    )
+
     x_lobster_integrated_orbital_coop_at_fermi_level = Quantity(
         type=typing.Any,
         unit='dimensionless',
         shape=["*"],
         description="""
-            Calculated orbital iCOOP values integrated up to the Fermi level.
-            """,
-    )
-    x_lobster_coop_orbital_pairs = Quantity(
-        type=typing.Any,
-        description="""
-            List of atom orbital pairs grouped for each bonds for which are the COOPs and iCOOPs calculated.
-            """,
-        shape=["*"],
-    )
-    x_lobster_coop_orbital_values = Quantity(
-        type=typing.Any,
-        shape=[
-            'x_lobster_number_of_coop_pairs',
-            '*',
-            'number_of_spin_channels',
-            'x_lobster_number_of_coop_values'
-        ],
-        description="""
-            Calculated COOP values for the orbitals.
-            """,
-    )
-
-    x_lobster_integrated_coop_orbital_values = Quantity(
-        type=typing.Any,
-        unit='joule',
-        shape=[
-            'x_lobster_number_of_coop_pairs',
-            '*',
-            'number_of_spin_channels',
-            'x_lobster_number_of_coop_values'
-        ],
-        description="""
-            Calculated iCOOP values for the orbitals.
-            """,
+        Calculated orbital iCOOP values integrated up to the Fermi level.
+        """,
     )
 
 

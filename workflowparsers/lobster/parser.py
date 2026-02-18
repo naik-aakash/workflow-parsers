@@ -44,6 +44,9 @@ from .metainfo.lobster import (
     x_lobster_section_cohp,
     x_lobster_section_coop,
     x_lobster_section_cobi,
+    x_lobster_section_cohp_orbital_label,
+    x_lobster_section_coop_orbital_label,
+    x_lobster_section_cobi_orbital_label,
 )
 # from .workflow import LOBSTERWorkflow
 
@@ -54,6 +57,41 @@ This is a LOBSTER code parser.
 e = (1 * units.e).to_base_units().magnitude
 eV = (1 * units.eV).to_base_units().magnitude
 re_float = r'[-+]?\d+\.\d*(?:[Ee][-+]\d+)?'
+
+
+def _normalize_label(label):
+    return str(label).strip()
+
+
+def _normalize_orbital_label(label):
+    text = str(label).strip()
+    if '[' in text and ']' in text:
+        text = text.replace('[', '_').replace(']', '')
+    return text
+
+
+def _normalize_fermi_orbital_values(values):
+    if (
+        isinstance(values, list)
+        and values
+        and isinstance(values[0], list)
+        and len(values[0]) == 1
+        and not isinstance(values[0][0], (list, tuple, np.ndarray))
+    ):
+        return [item[0] for item in values]
+    return values
+
+_LABEL_SECTION_ATTR = {
+    'hp': 'x_lobster_cohp_per_label',
+    'op': 'x_lobster_coop_per_label',
+    'bi': 'x_lobster_cobi_per_label',
+}
+
+_LABEL_SECTION_CLASS = {
+    'hp': x_lobster_section_cohp_orbital_label,
+    'op': x_lobster_section_coop_orbital_label,
+    'bi': x_lobster_section_cobi_orbital_label,
+}
 
 
 def get_lobster_file(filename):
@@ -233,9 +271,28 @@ def parse_ICOXPLIST(fname, scc, method, version):
     icoxplist_parser.parse()
 
     icoxp = []
-    icoxps_orb_list = []
-    orb_pair_list = []
+    label_attr = _LABEL_SECTION_ATTR.get(method)
+    label_class = _LABEL_SECTION_CLASS.get(method)
+    label_sections = []
+    label_section_map = {}
     for spin, icoxplist in enumerate(icoxplist_parser.get('icoxpslist_for_spin')):
+        if spin == 0:
+            if method == 'op':
+                section = x_lobster_section_coop()
+                scc.x_lobster_section_coop = section
+            elif method == 'hp':
+                section = x_lobster_section_cohp()
+                scc.x_lobster_section_cohp = section
+            elif method == 'bi':
+                section = x_lobster_section_cobi()
+                scc.x_lobster_section_cobi = section
+        else:
+            if method == 'op':
+                section = scc.x_lobster_section_coop
+            elif method == 'hp':
+                section = scc.x_lobster_section_cohp
+            elif method == 'bi':
+                section = scc.x_lobster_section_cobi
         if icoxplist.get('line') is not None:
             raw_lines_sp = icoxplist.get('line')
         else:
@@ -256,17 +313,21 @@ def parse_ICOXPLIST(fname, scc, method, version):
 
         lines = [x for x in raw_lines if x[1].count('_') == 0]
 
-        orb_data = {line[0]: [] for line in lines}
-        atom_orb_pairs = {line[0]: [] for line in lines}
-        atom_orb_icoxps = {line[0]: [] for line in lines}
+        orb_data = {_normalize_label(line[0]): [] for line in lines}
+        atom_orb_pairs = {_normalize_label(line[0]): [] for line in lines}
+        atom_orb_icoxps = {_normalize_label(line[0]): [] for line in lines}
 
         for line in raw_lines:
             if line[1].count('_') > 0:
-                orb_data[line[0]].append(line[1:])
-                atom_orb_pairs[line[0]].append([line[1], line[2]])
-                atom_orb_icoxps[line[0]].append(line[-1])
+                key = _normalize_label(line[0])
+                orb_data[key].append(line[1:])
+                atom_orb_pairs[key].append(
+                    [_normalize_orbital_label(line[1]), _normalize_orbital_label(line[2])]
+                )
+                atom_orb_icoxps[key].append(line[-1])
 
         if atom_orb_icoxps:
+            orb_labels = list(atom_orb_icoxps.keys())
             orb_icoxps = list(atom_orb_icoxps.values())
             if len(orb_icoxps[0]) > 0:
                 orb_icoxps = orb_coxp_icoxp_to_joule(
@@ -274,9 +335,28 @@ def parse_ICOXPLIST(fname, scc, method, version):
                     conversion_factor=eV,
                     data_type=method,
                 )
-            icoxps_orb_list.append(orb_icoxps)
-            if list(atom_orb_pairs.values()) not in orb_pair_list:
-                orb_pair_list.append(list(atom_orb_pairs.values()))
+
+            if label_attr and label_class:
+                for label, values in zip(orb_labels, orb_icoxps):
+                    label_section = label_section_map.get(label)
+                    if label_section is None:
+                        label_section = label_class()
+                        label_section.x_lobster_pair_label = label
+                        pair_attr = 'x_lobster_co{}_orbital_pairs'.format(method)
+                        setattr(label_section, pair_attr, atom_orb_pairs.get(label, []))
+                        label_section_map[label] = label_section
+                        label_sections.append(label_section)
+
+                    fermi_attr = 'x_lobster_integrated_orbital_co{}_at_fermi_level'.format(
+                        method
+                    )
+                    per_spin = getattr(label_section, fermi_attr)
+                    if per_spin is None:
+                        per_spin = []
+                    if len(per_spin) <= spin:
+                        per_spin.extend([None] * (spin + 1 - len(per_spin)))
+                    per_spin[spin] = _normalize_fermi_orbital_values(values)
+                    setattr(label_section, fermi_attr, per_spin)
 
         if isinstance(lines[0][5], int):
             label, a1, a2, distances, tmp, bonds = zip(*lines)
@@ -285,16 +365,6 @@ def parse_ICOXPLIST(fname, scc, method, version):
         icoxp.append(0)
         icoxp[-1] = list(tmp) if not isinstance(tmp[0], list) else tmp
         if spin == 0:
-            if method == 'op':
-                section = x_lobster_section_coop()
-                scc.x_lobster_section_coop = section
-            elif method == 'hp':
-                section = x_lobster_section_cohp()
-                scc.x_lobster_section_cohp = section
-            elif method == 'bi':
-                section = x_lobster_section_cobi()
-                scc.x_lobster_section_cobi = section
-
             setattr(
                 section, 'x_lobster_number_of_co{}_pairs'.format(method), len(list(a1))
             )
@@ -329,17 +399,8 @@ def parse_ICOXPLIST(fname, scc, method, version):
             np.array(icoxp[0]).T * units.eV if method == 'hp' else np.array(icoxp[0]).T,
         )
 
-    if len(icoxps_orb_list) > 0:
-        setattr(
-            section,
-            'x_lobster_integrated_orbital_co{}_at_fermi_level'.format(method),
-            icoxps_orb_list,
-        )
-        setattr(
-            section,
-            'x_lobster_co{}_orbital_pairs'.format(method),
-            orb_pair_list[0],
-        )
+    if label_attr and label_sections:
+        setattr(section, label_attr, label_sections)
     icoxplist_parser.close()
 
 
@@ -474,6 +535,16 @@ def parse_COXPCAR(fname, scc, method, logger):
 
         return orb_coxp, orb_icoxp
 
+    def _get_orbital_pairs_by_label(pairs_list):
+        pairs_by_label = {}
+        for lab, at1, at2, _dist in pairs_list:
+            if '[' not in at1:
+                continue
+            pairs_by_label.setdefault(lab, []).append(
+                [_normalize_orbital_label(at1), _normalize_orbital_label(at2)]
+            )
+        return pairs_by_label
+
     coxpcar_parser = COXPCARParser()
 
     # coxpcar_parser = TextParser(
@@ -540,6 +611,13 @@ def parse_COXPCAR(fname, scc, method, logger):
         _get_pair_label_distance(pairs)
     )
     atom_pair_cohp, atom_orb_cohp = _separate_orbital_data(pairs, coxp_lines)
+    atom_orb_cohp = {
+        _normalize_label(key): value for key, value in atom_orb_cohp.items()
+    }
+    orb_pairs_by_label = {
+        _normalize_label(key): value
+        for key, value in _get_orbital_pairs_by_label(pairs).items()
+    }
 
     number_of_pairs = len(list(a1))  # excluding orbital pairs (atom pairs only)
     tot_interactions = len(pairs)  # including orbital pairs
@@ -607,16 +685,43 @@ def parse_COXPCAR(fname, scc, method, logger):
         np.array(icoxp) * units.eV if method == 'hp' else np.array(icoxp),
     )
     if len(coxp_orb) > 0:
-        setattr(
-            section,
-            'x_lobster_co{}_orbital_values'.format(method),
-            coxp_orb,
-        )
-        setattr(
-            section,
-            'x_lobster_integrated_co{}_orbital_values'.format(method),
-            icoxp_orb,
-        )
+        label_attr = _LABEL_SECTION_ATTR.get(method)
+        label_class = _LABEL_SECTION_CLASS.get(method)
+        if label_attr and label_class:
+            existing_sections = getattr(section, label_attr)
+            set_attr = False
+            if existing_sections is None:
+                existing_sections = []
+                set_attr = True
+
+            section_map = {
+                sec.x_lobster_pair_label: sec for sec in existing_sections
+            }
+            label_sections = existing_sections
+            orb_labels = list(atom_orb_cohp.keys())
+            label_to_index = {lab: idx for idx, lab in enumerate(orb_labels)}
+            label_order = [
+                _normalize_label(lab) for lab in _lab if _normalize_label(lab) in label_to_index
+            ]
+            for label in label_order:
+                if label not in orb_pairs_by_label:
+                    continue
+                label_section = section_map.get(label)
+                if label_section is None:
+                    label_section = label_class()
+                    label_section.x_lobster_pair_label = label
+                    section_map[label] = label_section
+                    label_sections.append(label_section)
+
+                pair_attr = 'x_lobster_co{}_orbital_pairs'.format(method)
+                value_attr = 'x_lobster_co{}_orbital_values'.format(method)
+                ivalue_attr = 'x_lobster_integrated_co{}_orbital_values'.format(method)
+                setattr(label_section, pair_attr, orb_pairs_by_label[label])
+                label_index = label_to_index[label]
+                setattr(label_section, value_attr, coxp_orb[label_index])
+                setattr(label_section, ivalue_attr, icoxp_orb[label_index])
+            if set_attr:
+                setattr(section, label_attr, label_sections)
     coxpcar_parser.close()
 
 
@@ -1073,14 +1178,19 @@ class LobsterParser:
         parse_CHARGE(
             get_lobster_file(os.path.join(mainfile_path, 'CHARGE.lobster')), scc
         )
-        parse_DOSCAR(
-            get_lobster_file(os.path.join(mainfile_path, 'DOSCAR.lobster')), run, logger
+        doscar_lso = get_lobster_file(
+            os.path.join(mainfile_path, 'DOSCAR.LSO.lobster')
         )
-        parse_DOSCAR(
-            get_lobster_file(os.path.join(mainfile_path, 'DOSCAR.LSO.lobster')),
-            run,
-            logger,
-        )
+        doscar = get_lobster_file(os.path.join(mainfile_path, 'DOSCAR.lobster'))
+        if os.path.isfile(doscar_lso):
+            if os.path.isfile(doscar):
+                logger.warning(
+                    'Both DOSCAR.LSO.lobster and DOSCAR.lobster found; '
+                    'parsing only DOSCAR.LSO.lobster to avoid duplicate DOS.'
+                )
+            parse_DOSCAR(doscar_lso, run, logger)
+        elif os.path.isfile(doscar):
+            parse_DOSCAR(doscar, run, logger)
 
         workflow = SinglePoint()
         archive.workflow2 = workflow
