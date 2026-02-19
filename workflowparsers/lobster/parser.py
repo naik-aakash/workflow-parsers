@@ -47,6 +47,9 @@ from .metainfo.lobster import (
     x_lobster_section_cohp_orbital_label,
     x_lobster_section_coop_orbital_label,
     x_lobster_section_cobi_orbital_label,
+    x_lobster_section_cohp_orbital_pair,
+    x_lobster_section_coop_orbital_pair,
+    x_lobster_section_cobi_orbital_pair,
 )
 # from .workflow import LOBSTERWorkflow
 
@@ -71,26 +74,42 @@ def _normalize_orbital_label(label):
 
 
 def _normalize_fermi_orbital_values(values):
-    if (
-        isinstance(values, list)
-        and values
-        and isinstance(values[0], list)
-        and len(values[0]) == 1
-        and not isinstance(values[0][0], (list, tuple, np.ndarray))
-    ):
-        return [item[0] for item in values]
-    return values
+    """
+    Normalize fermi orbital values by flattening if needed.
+    Uses numpy operations to avoid list overhead for large data.
+
+    Args:
+        values: Input values (list or array)
+
+    Returns:
+        numpy array with appropriate shape
+    """
+    # Convert to numpy array if not already
+    values_array = np.asarray(values)
+
+    # Check if we have a 2D array with shape (n, 1) - equivalent to [[x], [y], [z]]
+    # Flatten to 1D in this case
+    if values_array.ndim == 2 and values_array.shape[1] == 1:
+        return values_array.flatten()
+
+    return values_array
 
 _LABEL_SECTION_ATTR = {
-    'hp': 'x_lobster_cohp_per_label',
-    'op': 'x_lobster_coop_per_label',
-    'bi': 'x_lobster_cobi_per_label',
+    'hp': 'x_lobster_cohp_orbital_per_label',
+    'op': 'x_lobster_coop_orbital_per_label',
+    'bi': 'x_lobster_cobi_orbital_per_label',
 }
 
 _LABEL_SECTION_CLASS = {
     'hp': x_lobster_section_cohp_orbital_label,
     'op': x_lobster_section_coop_orbital_label,
     'bi': x_lobster_section_cobi_orbital_label,
+}
+
+_ORBITAL_PAIR_CLASS = {
+    'hp': x_lobster_section_cohp_orbital_pair,
+    'op': x_lobster_section_coop_orbital_pair,
+    'bi': x_lobster_section_cobi_orbital_pair,
 }
 
 
@@ -273,8 +292,6 @@ def parse_ICOXPLIST(fname, scc, method, version):
     icoxp = []
     label_attr = _LABEL_SECTION_ATTR.get(method)
     label_class = _LABEL_SECTION_CLASS.get(method)
-    label_sections = []
-    label_section_map = {}
     for spin, icoxplist in enumerate(icoxplist_parser.get('icoxpslist_for_spin')):
         if spin == 0:
             if method == 'op':
@@ -337,26 +354,65 @@ def parse_ICOXPLIST(fname, scc, method, version):
                 )
 
             if label_attr and label_class:
+                orbital_pair_class = _ORBITAL_PAIR_CLASS.get(method)
+                # Get existing label sections from the parent section
+                existing_label_sections = getattr(section, label_attr) or []
+
                 for label, values in zip(orb_labels, orb_icoxps):
-                    label_section = label_section_map.get(label)
+                    # Find existing label section or create new one
+                    label_section = None
+                    for existing_sec in existing_label_sections:
+                        if existing_sec.x_lobster_pair_label == label:
+                            label_section = existing_sec
+                            break
+
                     if label_section is None:
                         label_section = label_class()
                         label_section.x_lobster_pair_label = label
-                        pair_attr = 'x_lobster_co{}_orbital_pairs'.format(method)
-                        setattr(label_section, pair_attr, atom_orb_pairs.get(label, []))
-                        label_section_map[label] = label_section
-                        label_sections.append(label_section)
+                        section.m_add_sub_section(label_attr, label_section)
 
-                    fermi_attr = 'x_lobster_integrated_orbital_co{}_at_fermi_level'.format(
-                        method
-                    )
-                    per_spin = getattr(label_section, fermi_attr)
-                    if per_spin is None:
-                        per_spin = []
-                    if len(per_spin) <= spin:
-                        per_spin.extend([None] * (spin + 1 - len(per_spin)))
-                    per_spin[spin] = _normalize_fermi_orbital_values(values)
-                    setattr(label_section, fermi_attr, per_spin)
+                    orbital_pairs_list = atom_orb_pairs.get(label, [])
+
+                    # Get existing orbital pairs or create new ones
+                    existing_orbital_pairs = label_section.x_lobster_orbital_pairs or []
+
+                    # Ensure we have enough orbital pair subsections
+                    for pair_idx in range(len(existing_orbital_pairs), len(orbital_pairs_list)):
+                        pair_section = orbital_pair_class()
+                        pair_section.x_lobster_atom1_orbital = orbital_pairs_list[pair_idx][0]
+                        pair_section.x_lobster_atom2_orbital = orbital_pairs_list[pair_idx][1]
+                        label_section.m_add_sub_section('x_lobster_orbital_pairs', pair_section)
+
+                    # Set fermi level values for each orbital pair
+                    fermi_attr = 'x_lobster_integrated_orbital_co{}_at_fermi_level'.format(method)
+                    normalized_values = _normalize_fermi_orbital_values(values)
+
+                    orbital_pairs = label_section.x_lobster_orbital_pairs or []
+                    for pair_idx, fermi_val in enumerate(normalized_values):
+                        if pair_idx < len(orbital_pairs):
+                            pair_section = orbital_pairs[pair_idx]
+                            per_spin = getattr(pair_section, fermi_attr)
+
+                            # Handle different fermi value formats
+                            if isinstance(fermi_val, (list, tuple, np.ndarray)):
+                                # Already have values for multiple spins [spin0, spin1, ...]
+                                # This happens with LOBSTER 5.1+ format
+                                if per_spin is None:
+                                    per_spin = np.array(fermi_val)
+                                else:
+                                    # Merge with existing
+                                    per_spin = np.array(fermi_val)
+                            else:
+                                # Single value for current spin channel
+                                if per_spin is None:
+                                    per_spin = np.zeros(spin + 1)
+                                elif len(per_spin) <= spin:
+                                    new_per_spin = np.zeros(spin + 1)
+                                    new_per_spin[:len(per_spin)] = per_spin
+                                    per_spin = new_per_spin
+                                per_spin[spin] = fermi_val
+
+                            setattr(pair_section, fermi_attr, per_spin)
 
         if isinstance(lines[0][5], int):
             label, a1, a2, distances, tmp, bonds = zip(*lines)
@@ -399,8 +455,6 @@ def parse_ICOXPLIST(fname, scc, method, version):
             np.array(icoxp[0]).T * units.eV if method == 'hp' else np.array(icoxp[0]).T,
         )
 
-    if label_attr and label_sections:
-        setattr(section, label_attr, label_sections)
     icoxplist_parser.close()
 
 
@@ -687,41 +741,77 @@ def parse_COXPCAR(fname, scc, method, logger):
     if len(coxp_orb) > 0:
         label_attr = _LABEL_SECTION_ATTR.get(method)
         label_class = _LABEL_SECTION_CLASS.get(method)
-        if label_attr and label_class:
-            existing_sections = getattr(section, label_attr)
-            set_attr = False
-            if existing_sections is None:
-                existing_sections = []
-                set_attr = True
+        orbital_pair_class = _ORBITAL_PAIR_CLASS.get(method)
+        if label_attr and label_class and orbital_pair_class:
+            # Get existing label sections
+            existing_sections = getattr(section, label_attr) or []
 
-            section_map = {
-                sec.x_lobster_pair_label: sec for sec in existing_sections
-            }
-            label_sections = existing_sections
             orb_labels = list(atom_orb_cohp.keys())
             label_to_index = {lab: idx for idx, lab in enumerate(orb_labels)}
             label_order = [
                 _normalize_label(lab) for lab in _lab if _normalize_label(lab) in label_to_index
             ]
+
             for label in label_order:
                 if label not in orb_pairs_by_label:
                     continue
-                label_section = section_map.get(label)
+
+                # Find existing label section or create new one
+                label_section = None
+                for existing_sec in existing_sections:
+                    if existing_sec.x_lobster_pair_label == label:
+                        label_section = existing_sec
+                        break
+
                 if label_section is None:
                     label_section = label_class()
                     label_section.x_lobster_pair_label = label
-                    section_map[label] = label_section
-                    label_sections.append(label_section)
+                    section.m_add_sub_section(label_attr, label_section)
 
-                pair_attr = 'x_lobster_co{}_orbital_pairs'.format(method)
-                value_attr = 'x_lobster_co{}_orbital_values'.format(method)
-                ivalue_attr = 'x_lobster_integrated_co{}_orbital_values'.format(method)
-                setattr(label_section, pair_attr, orb_pairs_by_label[label])
+                # Get the orbital pairs and values for this label
+                orbital_pairs = orb_pairs_by_label[label]
                 label_index = label_to_index[label]
-                setattr(label_section, value_attr, coxp_orb[label_index])
-                setattr(label_section, ivalue_attr, icoxp_orb[label_index])
-            if set_attr:
-                setattr(section, label_attr, label_sections)
+                coxp_values_list = coxp_orb[label_index]
+                icoxp_values_list = icoxp_orb[label_index]
+
+                # Check if orbital pairs already exist (created by parse_ICOXPLIST)
+                existing_orbital_pairs = label_section.x_lobster_orbital_pairs or []
+
+                # Create or update subsections for each orbital pair
+                for pair_idx, (atom1_orb, atom2_orb) in enumerate(orbital_pairs):
+                    # Check if this orbital pair already exists
+                    if pair_idx < len(existing_orbital_pairs):
+                        # Reuse existing orbital pair subsection
+                        pair_section = existing_orbital_pairs[pair_idx]
+                    else:
+                        # Create new orbital pair subsection
+                        pair_section = orbital_pair_class()
+                        pair_section.x_lobster_atom1_orbital = atom1_orb
+                        pair_section.x_lobster_atom2_orbital = atom2_orb
+                        label_section.m_add_sub_section('x_lobster_orbital_pairs', pair_section)
+
+                    # Set the values - reshape for proper dimensions
+                    # coxp_values_list[pair_idx] is either:
+                    # - Non-spin-polarized: 1D array of [n_energy]
+                    # - Spin-polarized: list of 2 arrays [up_array, dn_array]
+                    coxp_val = coxp_values_list[pair_idx]
+                    icoxp_val = icoxp_values_list[pair_idx]
+
+                    # Convert to proper shape: [n_spin, n_energy]
+                    # Check if spin-polarized by checking if it's a list/tuple with array-like elements
+                    if isinstance(coxp_val, (list, tuple)) and len(coxp_val) == 2 and hasattr(coxp_val[0], '__len__'):
+                        # Spin-polarized: [up_array, dn_array] -> already correct structure
+                        coxp_array = np.array(coxp_val)
+                        icoxp_array = np.array(icoxp_val)
+                    else:
+                        # Non-spin-polarized: array -> wrap in list to get [1, n_energy]
+                        coxp_array = np.array([coxp_val])
+                        icoxp_array = np.array([icoxp_val])
+
+                    value_attr = 'x_lobster_co{}_orbital_values'.format(method)
+                    ivalue_attr = 'x_lobster_integrated_co{}_orbital_values'.format(method)
+                    setattr(pair_section, value_attr, coxp_array)
+                    setattr(pair_section, ivalue_attr, icoxp_array)
     coxpcar_parser.close()
 
 
