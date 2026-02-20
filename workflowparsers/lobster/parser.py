@@ -474,6 +474,38 @@ class COXPCARParser(TextParser):
         ]
 
 
+def _coxp_exceeds_uncompressed_limit(fname, logger, limit_bytes):
+    try:
+        with open(fname, 'rb') as handle:
+            compression, open_compressed = _compressions.get(handle.read(3), (None, open))
+    except OSError as exc:
+        logger.warning(f'Unable to read COXPCAR file size: {exc}. Skipping parsing.')
+        return True
+
+    if compression is None:
+        try:
+            return os.path.getsize(fname) > limit_bytes
+        except OSError as exc:
+            logger.warning(f'Unable to stat COXPCAR file: {exc}. Skipping parsing.')
+            return True
+
+    try:
+        total = 0
+        with open_compressed(fname) as handle:
+            while True:
+                chunk = handle.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > limit_bytes:
+                    return True
+    except OSError as exc:
+        logger.warning(f'Unable to read compressed COXPCAR file: {exc}. Skipping parsing.')
+        return True
+
+    return False
+
+
 def parse_COXPCAR(fname, scc, method, logger):
     def _separate_orbital_data(pairs_list, coxp_lines_list):
         """
@@ -617,6 +649,13 @@ def parse_COXPCAR(fname, scc, method, logger):
     # )
 
     if not os.path.isfile(fname):
+        return
+    if _coxp_exceeds_uncompressed_limit(fname, logger, 2 * 1024**3):
+        logger.warning(
+            'Skipping CO{}CAR parsing because uncompressed size exceeds 2 GB.'.format(
+                method.upper()
+            )
+        )
         return
     coxpcar_parser.findall = False
     coxpcar_parser.mainfile = fname
