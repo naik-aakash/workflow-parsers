@@ -239,14 +239,14 @@ class x_lobster_section_cobi_orbital_pair(MSection):
     x_lobster_atom1_orbital = Quantity(
         type=str,
         description="""
-        Orbital name for atom1 (e.g., '3d', '4s').
+        Orbital name for atom1 (e.g., 'Na1_3s').
         """,
     )
 
     x_lobster_atom2_orbital = Quantity(
         type=str,
         description="""
-        Orbital name for atom2 (e.g., '2p', '3s').
+        Orbital name for atom2 (e.g., 'Cl2_3p').
         """,
     )
 
@@ -443,14 +443,14 @@ class x_lobster_section_cohp_orbital_pair(MSection):
     x_lobster_atom1_orbital = Quantity(
         type=str,
         description="""
-        Orbital name for atom1 (e.g., '3d', '4s').
+        Orbital name for atom1 (e.g., 'Na1_3s').
         """,
     )
 
     x_lobster_atom2_orbital = Quantity(
         type=str,
         description="""
-        Orbital name for atom2 (e.g., '2p', '3s').
+        Orbital name for atom2 (e.g., 'Cl2_3p').
         """,
     )
 
@@ -646,14 +646,14 @@ class x_lobster_section_coop_orbital_pair(MSection):
     x_lobster_atom1_orbital = Quantity(
         type=str,
         description="""
-        Orbital name for atom1 (e.g., '3d', '4s').
+        Orbital name for atom1 (e.g., 'Na1_3s').
         """,
     )
 
     x_lobster_atom2_orbital = Quantity(
         type=str,
         description="""
-        Orbital name for atom2 (e.g., '2p', '3s').
+        Orbital name for atom2 (e.g., 'Cl2', '3p').
         """,
     )
 
