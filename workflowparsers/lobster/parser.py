@@ -180,7 +180,6 @@ def parse_ICOXPLIST(fname, scc, method, version):
                 float(tmp[7]),
             ]
         elif len(tmp) == 9 and not tmp[-1].isdigit():
-            #print("here", tmp)
             # Spin polarized data LOBSTER version 5.1 and above
             return [
                 tmp[0],
@@ -330,7 +329,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
             break
 
         lines = [x for x in raw_lines if x[1].count('_') == 0]
-        
+
         orb_data = {_normalize_label(line[0]): [] for line in lines}
         atom_orb_pairs = {_normalize_label(line[0]): [] for line in lines}
         atom_orb_icoxps = {_normalize_label(line[0]): [] for line in lines}
@@ -344,8 +343,8 @@ def parse_ICOXPLIST(fname, scc, method, version):
                     [_normalize_orbital_label(line[1]), _normalize_orbital_label(line[2])]
                 )
                 atom_orb_icoxps[key].append(line[-1])
-        
-        
+
+
         if atom_orb_icoxps:
             orb_labels = list(atom_orb_icoxps.keys())
             orb_icoxps = list(atom_orb_icoxps.values())
@@ -395,7 +394,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
                         if pair_idx < len(orbital_pairs):
                             pair_section = orbital_pairs[pair_idx]
                             per_spin = getattr(pair_section, fermi_attr)
-                            
+
                             # Handle different fermi value formats
                             if isinstance(fermi_val, (list, tuple, np.ndarray)):
                                 # Already have values for multiple spins [spin0, spin1, ...]
