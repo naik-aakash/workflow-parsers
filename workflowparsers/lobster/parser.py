@@ -159,7 +159,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
                             Quantity(
                                 'line',
                                 # LOBSTER version 3 and above
-                                r'( *\d+ +\w+ +\w+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ *)',
+                                r'( *\d+ +[^ ]+ +[^ ]+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ *)',
                                 repeats=True,
                                 str_operation=icoxp_line_split,
                             )
@@ -180,7 +180,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
                             Quantity(
                                 'line',
                                 # LOBSTER version 5.1 and above
-                                r'( *\d+ +\w+ +\w+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ +[-\.\d]+)',
+                                r'( *\d+ +[^ ]+ +[^ ]+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ +[-\.\d]+)',
                                 repeats=True,
                                 str_operation=icoxp_line_split,
                             )
@@ -196,7 +196,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
                             Quantity(
                                 'line',
                                 # LOBSTER version 5.1 and above
-                                r'( *\d+ +\w+ +\w+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ *)',
+                                r'( *\d+ +[^ ]+ +[^ ]+ +[\.\d]+ +[-\d]+ +[-\d]+ +[-\d]+ +[-\.\d]+ *)',
                                 repeats=True,
                                 str_operation=icoxp_line_split,
                             )
@@ -217,7 +217,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
                             Quantity(
                                 'line',
                                 # LOBSTER versions below 3
-                                r'( *\d+ +\w+ +\w+ +[\.\d]+ +[-\.\d]+ +[\d]+ *)',
+                                r'( *\d+ +[^ ]+ +[^ ]+ +[\.\d]+ +[-\.\d]+ +[\d]+ *)',
                                 repeats=True,
                                 str_operation=icoxp_line_split,
                             ),
@@ -1100,7 +1100,7 @@ class LobsterParser:
                 from nomad.search import search  # noqa
                 from nomad.app.v1.models import MetadataRequired  # noqa
 
-                parent_file = mainfile.split('raw/')[-1]
+                parent_file = mainfile.split('raw/')[-1]  # noqa
                 parent_dir = os.path.dirname(parent_file)
 
                 upload_id = archive.metadata.upload_id
