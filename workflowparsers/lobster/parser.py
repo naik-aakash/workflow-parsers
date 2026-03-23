@@ -484,7 +484,7 @@ class COXPCARParser(TextParser):
             ),
             Quantity(
                 'coxp_lines',
-                [r'\s*(-*\d+\.\d+(?:[ \t]+-*\d+\.\d+)+)\s*'],  # Consistent with original
+                [r'\s*(-*\d+\.\d+(?:[ \t]+-*\d+\.\d+)+)\s*'],
                 repeats=True,
                 dtype=np.float64,
             ),
