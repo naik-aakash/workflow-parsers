@@ -465,6 +465,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
     icoxplist_parser.close()
 
 def _split_coxp_pair_line(line):
+    """Parse a raw pair line into [label, atom1, atom2, distance]."""
     match = re.match(r'\s*No\.(\d+)\:(.+?)\->(.+?)\(([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?)\)\s*$', str(line))
     if match is None:
         return None
@@ -473,43 +474,17 @@ def _split_coxp_pair_line(line):
     return [label.strip(), atom1.strip(), atom2.strip(), float(distance)]
 
 
-def _read_coxp_pairs_from_file(fname):
-    pair_pattern = re.compile(
-        r'^\s*No\.(\d+)\:(.+?)\->(.+?)\(([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?)\)\s*$'
-    )
-    pairs = []
-
-    with open(fname, 'rb') as handle:
-        compression, open_compressed = _compressions.get(handle.read(3), (None, open))
-
-    with open_compressed(fname) as handle:
-        for line in handle:
-            if compression:
-                try:
-                    line = line.decode('utf-8')
-                except Exception:
-                    continue
-            match = pair_pattern.match(str(line))
-            if match is None:
-                continue
-            label, atom1, atom2, distance = match.groups()
-            pairs.append([label.strip(), atom1.strip(), atom2.strip(), float(distance)])
-
-    return pairs
-
-
 class COXPCARParser(TextParser):
     def init_quantities(self):
         self._quantities = [
             Quantity(
                 'coxp_pairs',
-                [r'\s*No\.\d+\:.+?\->.+?\([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?\)\s*'],
+                [r'(No\.\d+[^\n]*)'],  # Extract raw pair line text
                 repeats=True,
-                str_operation=_split_coxp_pair_line,
             ),
             Quantity(
                 'coxp_lines',
-                [r'\s*(-*\d+\.\d+(?:[ \t]+-*\d+\.\d+)+)\s*'],
+                [r'\s*(-*\d+\.\d+(?:[ \t]+-*\d+\.\d+)+)\s*'],  # Consistent with original
                 repeats=True,
                 dtype=np.float64,
             ),
@@ -677,19 +652,6 @@ def parse_COXPCAR(fname, scc, method, logger):
 
     coxpcar_parser = COXPCARParser()
 
-    # coxpcar_parser = TextParser(
-    #     quantities=[
-    #         Quantity(
-    #             'coxp_pairs',
-    #             r'No\.(\d+):(\w{1,2}\d+)->(\w{1,2}\d+)\(([\d\.]+)\) *?|No\.(\d+):(\w{1,2}\d+\[[^\]]*\])->(\w{1,2}\d+\[[^\]]*\])\(([\d\.]+)\) *?',
-    #             repeats=True,
-    #         ),
-    #         Quantity(
-    #             'coxp_lines', r'\n *(-*\d+\.\d+(?:[ \t]+-*\d+\.\d+)+)', repeats=True
-    #         ),
-    #     ]
-    # )
-
     if not os.path.isfile(fname):
         return
     if _coxp_exceeds_uncompressed_limit(fname, logger, 2 * 1024**3):
@@ -699,7 +661,7 @@ def parse_COXPCAR(fname, scc, method, logger):
             )
         )
         return
-    coxpcar_parser.line_parsing = True
+    coxpcar_parser.line_parsing = True  # Enable streaming mode for memory efficiency
     coxpcar_parser.mainfile = fname
     coxpcar_parser.parse()
 
@@ -722,17 +684,13 @@ def parse_COXPCAR(fname, scc, method, logger):
         else:
             section = scc.x_lobster_section_cobi
 
-    pairs = coxpcar_parser.pop('coxp_pairs')
-    if pairs is not None:
-        pairs = [pair for pair in pairs if pair is not None]
-
-    valid_pairs = bool(
-        pairs
-        and isinstance(pairs[0], (list, tuple))
-        and len(pairs[0]) == 4
-    )
-    if not valid_pairs:
-        pairs = _read_coxp_pairs_from_file(fname)
+    # Extract raw pair lines and process them outside the parser
+    raw_pair_lines = coxpcar_parser.pop('coxp_pairs')
+    if raw_pair_lines:
+        pairs = [_split_coxp_pair_line(line) for line in raw_pair_lines]
+        pairs = [p for p in pairs if p is not None]  # Filter invalid parses
+    else:
+        pairs = []
 
     if not pairs:
         coxpcar_parser.close()
