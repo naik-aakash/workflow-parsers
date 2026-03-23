@@ -20,6 +20,7 @@ import datetime
 import numpy as np
 import ase.io
 import os
+import re
 
 from nomad.datamodel import EntryArchive
 from nomad.units import ureg as units
@@ -421,7 +422,7 @@ def parse_ICOXPLIST(fname, scc, method, version):
         else:
             label, a1, a2, distances, v, tmp = zip(*lines)
         icoxp.append(0)
-        icoxp[-1] = list(tmp) if not isinstance(tmp[0], list) else tmp
+        icoxp[-1] = np.asarray(tmp)
         if spin == 0:
             setattr(
                 section, 'x_lobster_number_of_co{}_pairs'.format(method), len(list(a1))
@@ -436,12 +437,16 @@ def parse_ICOXPLIST(fname, scc, method, version):
 
             # version specific entries
             if 'v' in locals():
-                setattr(section, 'x_lobster_co{}_translations'.format(method), list(v))
+                setattr(
+                    section,
+                    'x_lobster_co{}_translations'.format(method),
+                    np.asarray(v),
+                )
             if 'bonds' in locals():
                 setattr(
                     section,
                     'x_lobster_co{}_number_of_bonds'.format(method),
-                    list(bonds),
+                    np.asarray(bonds),
                 )
 
     if len(icoxp) > 0 and not isinstance(icoxp[0][0], np.ndarray):
@@ -459,17 +464,54 @@ def parse_ICOXPLIST(fname, scc, method, version):
 
     icoxplist_parser.close()
 
+def _split_coxp_pair_line(line):
+    match = re.match(r'\s*No\.(\d+)\:(.+?)\->(.+?)\(([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?)\)\s*$', str(line))
+    if match is None:
+        return None
+
+    label, atom1, atom2, distance = match.groups()
+    return [label.strip(), atom1.strip(), atom2.strip(), float(distance)]
+
+
+def _read_coxp_pairs_from_file(fname):
+    pair_pattern = re.compile(
+        r'^\s*No\.(\d+)\:(.+?)\->(.+?)\(([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?)\)\s*$'
+    )
+    pairs = []
+
+    with open(fname, 'rb') as handle:
+        compression, open_compressed = _compressions.get(handle.read(3), (None, open))
+
+    with open_compressed(fname) as handle:
+        for line in handle:
+            if compression:
+                try:
+                    line = line.decode('utf-8')
+                except Exception:
+                    continue
+            match = pair_pattern.match(str(line))
+            if match is None:
+                continue
+            label, atom1, atom2, distance = match.groups()
+            pairs.append([label.strip(), atom1.strip(), atom2.strip(), float(distance)])
+
+    return pairs
+
 
 class COXPCARParser(TextParser):
     def init_quantities(self):
         self._quantities = [
             Quantity(
                 'coxp_pairs',
-                r'No\.(\d+)\:(\w+.*?)\->(\w+.*?)\(([\d\.]+)\)',
+                [r'\s*No\.\d+\:.+?\->.+?\([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?\)\s*'],
                 repeats=True,
+                str_operation=_split_coxp_pair_line,
             ),
             Quantity(
-                'coxp_lines', r'\n *(-*\d+\.\d+(?:[ \t]+-*\d+\.\d+)+)', repeats=True
+                'coxp_lines',
+                [r'\s*(-*\d+\.\d+(?:[ \t]+-*\d+\.\d+)+)\s*'],
+                repeats=True,
+                dtype=np.float64,
             ),
         ]
 
@@ -657,7 +699,7 @@ def parse_COXPCAR(fname, scc, method, logger):
             )
         )
         return
-    coxpcar_parser.findall = False
+    coxpcar_parser.line_parsing = True
     coxpcar_parser.mainfile = fname
     coxpcar_parser.parse()
 
@@ -680,9 +722,20 @@ def parse_COXPCAR(fname, scc, method, logger):
         else:
             section = scc.x_lobster_section_cobi
 
-    pairs = coxpcar_parser.get('coxp_pairs')
+    pairs = coxpcar_parser.pop('coxp_pairs')
+    if pairs is not None:
+        pairs = [pair for pair in pairs if pair is not None]
 
-    if pairs is None:
+    valid_pairs = bool(
+        pairs
+        and isinstance(pairs[0], (list, tuple))
+        and len(pairs[0]) == 4
+    )
+    if not valid_pairs:
+        pairs = _read_coxp_pairs_from_file(fname)
+
+    if not pairs:
+        coxpcar_parser.close()
         logger.warning(
             'No CO{}P values detected in CO{}CAR.lobster.'.format(
                 method.upper(), method.upper()
@@ -690,15 +743,15 @@ def parse_COXPCAR(fname, scc, method, logger):
         )
         return
 
-    coxp_lines = coxpcar_parser.get('coxp_lines')
-    coxp_lines = list(zip(*coxp_lines))
-
+    coxp_lines = coxpcar_parser.pop('coxp_lines')
     if coxp_lines is None:
+        coxpcar_parser.close()
         logger.warning(
             'No CO{} values detected in CO{}CAR.lobster.'
             'The file is likely incomplete'.format(method.upper(), method.upper())
         )
         return
+    coxp_lines = list(np.asarray(coxp_lines).T)
 
     spin_polarized = len(coxp_lines) == 4 * len(pairs) + 5
 
@@ -976,14 +1029,14 @@ def parse_DOSCAR(fname, run, logger):
         return
 
     if len(dos_values) == n_dos:
-        value = list(zip(*dos_values))
+        value = np.asarray(dos_values).T
         n_spin_channels = len(value)
         n_electrons = sum(atomic_numbers)
         index = (np.abs(energies)).argmin()
         # integrated dos at the Fermi level should be the number of electrons
         n_valence_electrons = int(round(sum(integral_dos[index])))
         n_core_electrons = n_electrons - n_valence_electrons
-        value_integrated = np.array(list(zip(*integral_dos))) + n_core_electrons / len(
+        value_integrated = np.asarray(integral_dos).T + n_core_electrons / len(
             integral_dos[0]
         )
         for spin_i in range(n_spin_channels):
@@ -1015,8 +1068,9 @@ def parse_DOSCAR(fname, run, logger):
             # we have the same lm-projections for spin up and dn
             dos_values = np.array([[lmdos] for lmdos in zip(*pdos)]) / eV
         elif len(lms[atom_i]) * 2 == len(pdos[0]):
-            pdos_up = list(zip(*pdos))[0::2]
-            pdos_dn = list(zip(*pdos))[1::2]
+            transposed_pdos = np.asarray(pdos).T
+            pdos_up = transposed_pdos[0::2]
+            pdos_dn = transposed_pdos[1::2]
             dos_values = np.array([[a, b] for a, b in zip(pdos_up, pdos_dn)]) / eV
         else:
             logger.warning('Unexpected number of columns in DOSCAR.lobster')
